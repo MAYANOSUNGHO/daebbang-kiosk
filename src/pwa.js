@@ -8,9 +8,12 @@ export function registerServiceWorker() {
   if (window.Capacitor?.isNativePlatform?.()) return;
 
   const base = import.meta.env.BASE_URL;
-  window.addEventListener("load", () => {
+  const register = () => {
     navigator.serviceWorker.register(`${base}sw.js`, { scope: base }).catch(() => {
       /* 오프라인 저장에 실패해도 앱은 그대로 동작합니다. */
     });
-  });
+  };
+
+  if (document.readyState === "complete") register();
+  else window.addEventListener("load", register, { once: true });
 }

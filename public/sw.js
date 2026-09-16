@@ -1,8 +1,24 @@
-/* 홈 화면 앱을 인터넷 없이 열 수 있게 파일을 저장해 둡니다. */
-const CACHE = "daebbang-kiosk-v1";
+/* 홈 화면 앱을 인터넷 없이 열 수 있게 파일을 저장해 둡니다. 목록과 버전은 빌드할 때 채워집니다. */
+const VERSION = "__SW_VERSION__";
+const PRECACHE = "__SW_PRECACHE__";
+const CACHE = `daebbang-kiosk-${VERSION}`;
 
-self.addEventListener("install", () => {
-  self.skipWaiting();
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    (async () => {
+      if (Array.isArray(PRECACHE)) {
+        const cache = await caches.open(CACHE);
+        await Promise.all(
+          PRECACHE.map((url) =>
+            cache.add(new Request(url, { cache: "reload" })).catch(() => {
+              /* 없는 파일은 건너뜁니다. */
+            }),
+          ),
+        );
+      }
+      await self.skipWaiting();
+    })(),
+  );
 });
 
 self.addEventListener("activate", (event) => {
@@ -30,7 +46,7 @@ self.addEventListener("fetch", (event) => {
           return fresh;
         } catch {
           const cached = await caches.match(request);
-          return cached || caches.match("./index.html");
+          return cached || (await caches.match("./index.html")) || Response.error();
         }
       })(),
     );

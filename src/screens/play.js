@@ -183,6 +183,7 @@ function bindGo(app, go) {
 }
 
 async function onDraw(ctx) {
+  ctx.state.settings = loadSettings();
   ctx.state.items = await getAllItems();
   const picked = pickItem(ctx.state.items, ctx.state.settings.rates);
   ctx.go("rolling", { result: picked });

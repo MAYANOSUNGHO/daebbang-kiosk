@@ -1,6 +1,6 @@
 import { tickerMarkup } from "../lib/markup.js";
 import { cropImageToSquare } from "../lib/crop.js";
-import { gradeLabel } from "../draw.js";
+import { formatRates, gradeLabel } from "../draw.js";
 import {
   clearAllItems,
   deleteItem,
@@ -58,12 +58,13 @@ export async function renderSettings(app, ctx) {
           <label>1등상 <input id="rate1" type="number" value="${ctx.state.settings.rates[1]}" /></label>
         </div>
         <label>PIN 변경 <input id="new-pin" type="text" value="${ctx.escapeHtml(ctx.state.settings.pin)}" /></label>
+        <p class="rate-notice" id="settings-rate-preview">${ctx.escapeHtml(formatRates(ctx.state.settings.rates))}</p>
         <div class="btn-row" style="margin-top:12px">
-          <button class="btn btn-ok" id="save-rates" type="button">확률/PIN 저장</button>
+          <button class="btn btn-ok" id="save-rates" type="button">PIN 저장</button>
           <button class="btn btn-ghost" id="undo" type="button" ${last ? "" : "disabled"}>마지막 지급 취소</button>
           <button class="btn btn-danger" id="factory-reset" type="button">공장초기화</button>
         </div>
-        <p class="hint">1·2·3등상 확률은 등급끼리만 적용됩니다. 같은 등급 안에서는 남은 재고가 많을수록 더 자주 나옵니다. 재고 0은 뽑히지 않습니다.</p>
+        <p class="hint">확률 숫자는 입력하는 즉시 뽑기 화면 고지에 반영됩니다. PIN만 아래 저장을 누르면 됩니다. 1·2·3등상 확률은 등급끼리만 적용되고, 같은 등급 안에서는 남은 재고가 많을수록 더 자주 나옵니다.</p>
       </div>
       <div class="panel item-list" style="margin-top:16px">
         ${
@@ -79,6 +80,9 @@ export async function renderSettings(app, ctx) {
     ctx.go("item-form");
   });
   document.getElementById("save-rates")?.addEventListener("click", () => saveRates(ctx));
+  ["rate3", "rate2", "rate1"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("input", () => applyRatesFromForm(ctx, false));
+  });
   document.getElementById("undo")?.addEventListener("click", () => undoLast(ctx));
   document.getElementById("factory-reset")?.addEventListener("click", () => onFactoryReset(ctx));
   app.querySelectorAll("[data-edit]").forEach((btn) => {
@@ -170,15 +174,23 @@ function emptyDraft() {
   return { id: "", name: "", stock: 1, grade: 3, weight: 1, image: null, enabled: true };
 }
 
-function saveRates(ctx) {
+function applyRatesFromForm(ctx, includePin) {
   ctx.state.settings.rates = {
     3: Number(document.getElementById("rate3").value) || 0,
     2: Number(document.getElementById("rate2").value) || 0,
     1: Number(document.getElementById("rate1").value) || 0,
   };
-  ctx.state.settings.pin = document.getElementById("new-pin").value || "1234";
+  if (includePin) {
+    ctx.state.settings.pin = document.getElementById("new-pin").value || "1234";
+  }
   saveSettings(ctx.state.settings);
-  alert("저장했습니다.");
+  const preview = document.getElementById("settings-rate-preview");
+  if (preview) preview.textContent = formatRates(ctx.state.settings.rates);
+}
+
+function saveRates(ctx) {
+  applyRatesFromForm(ctx, true);
+  alert("PIN을 저장했습니다. 확률은 숫자를 바꿀 때마다 이미 반영됩니다.");
 }
 
 async function saveDraft(ctx) {
