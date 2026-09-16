@@ -1,0 +1,10 @@
+{
+  "appId": "com.daebbang.kiosk",
+  "appName": "대빵오락실",
+  "webDir": "dist",
+  "backgroundColor": "#FFAB4A",
+  "android": {
+    "allowMixedContent": true,
+    "backgroundColor": "#FFAB4A"
+  }
+}
