@@ -690,3 +690,10 @@ video.fill {
     animation: none;
   }
 }
+
+.stock-line {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}

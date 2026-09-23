@@ -197,6 +197,7 @@ async function onConfirm(ctx) {
     return;
   }
   current.stock -= 1;
+  current.todayOut = (Number(current.todayOut) || 0) + 1;
   await saveItem(current);
   ctx.state.settings.lastConfirm = { id: current.id, at: Date.now() };
   saveSettings(ctx.state.settings);

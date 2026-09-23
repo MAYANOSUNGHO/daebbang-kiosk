@@ -42,6 +42,10 @@ export async function renderSettings(app, ctx) {
     (a, b) => Number(a.grade) - Number(b.grade) || a.name.localeCompare(b.name, "ko"),
   );
   const last = ctx.state.settings.lastConfirm;
+  const totalOut = ctx.state.items.reduce((sum, item) => sum + todayOutOf(item), 0);
+  const lastSettle = ctx.state.settings.lastSettleAt
+    ? new Date(ctx.state.settings.lastSettleAt).toLocaleString("ko-KR")
+    : "";
   app.innerHTML = `
     <section class="screen screen-plain screen-scroll">
       ${tickerMarkup()}
@@ -66,6 +70,16 @@ export async function renderSettings(app, ctx) {
         </div>
         <p class="hint">확률 숫자는 입력하는 즉시 뽑기 화면 고지에 반영됩니다. PIN만 아래 저장을 누르면 됩니다. 1·2·3등상 확률은 등급끼리만 적용되고, 같은 등급 안에서는 남은 재고가 많을수록 더 자주 나옵니다.</p>
       </div>
+      <div class="panel" style="margin-top:16px">
+        <h3>오늘 재고 정리</h3>
+        <p class="stock-line">오늘 나간 수 합계 ${totalOut}개</p>
+        <div class="btn-row">
+          <button class="btn btn-ok" id="settle-today" type="button" ${totalOut ? "" : "disabled"}>오늘 나간 수 재고에 반영</button>
+        </div>
+        <p class="hint">누르면 오늘 나간 수가 0으로 초기화되고, 지금 남은 개수가 새 기본 재고가 됩니다.${
+          lastSettle ? ` 마지막 반영: ${ctx.escapeHtml(lastSettle)}` : ""
+        }</p>
+      </div>
       <div class="panel item-list" style="margin-top:16px">
         ${
           ctx.state.items.length
@@ -84,6 +98,7 @@ export async function renderSettings(app, ctx) {
     document.getElementById(id)?.addEventListener("input", () => applyRatesFromForm(ctx, false));
   });
   document.getElementById("undo")?.addEventListener("click", () => undoLast(ctx));
+  document.getElementById("settle-today")?.addEventListener("click", () => settleToday(ctx, totalOut));
   document.getElementById("factory-reset")?.addEventListener("click", () => onFactoryReset(ctx));
   app.querySelectorAll("[data-edit]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -139,7 +154,24 @@ export function renderItemForm(app, ctx) {
     }
     ctx.go("item-form");
   });
-  document.getElementById("save-item")?.addEventListener("click", () => saveDraft(ctx));
+  let saving = false;
+  const save = async () => {
+    if (saving) return;
+    saving = true;
+    try {
+      await saveDraft(ctx);
+    } finally {
+      saving = false;
+    }
+  };
+  document.getElementById("save-item")?.addEventListener("click", save);
+  app.querySelectorAll("#name, #stock, #grade, #weight").forEach((field) => {
+    field.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || event.isComposing) return;
+      event.preventDefault();
+      save();
+    });
+  });
   document.getElementById("delete-item")?.addEventListener("click", async () => {
     if (!confirm("이 품목을 삭제할까요?")) return;
     await deleteItem(item.id);
@@ -153,8 +185,13 @@ function bindGo(app, go) {
   });
 }
 
+function todayOutOf(item) {
+  return Math.max(0, Number(item.todayOut) || 0);
+}
+
 function itemRow(item, ctx) {
   const img = ctx.blobUrl(item.image);
+  const out = todayOutOf(item);
   return `
     <div class="item-row">
       ${
@@ -164,7 +201,8 @@ function itemRow(item, ctx) {
       }
       <div>
         <strong>${ctx.escapeHtml(item.name)}</strong>
-        <div class="hint">${gradeLabel(item.grade)} · 재고 ${item.stock} · 배율 ${item.weight}</div>
+        <div class="hint">${gradeLabel(item.grade)} · 배율 ${item.weight}</div>
+        <div class="stock-line">재고 ${item.stock + out}개 - 오늘 나간 수 ${out}개 = 남은 ${item.stock}개</div>
       </div>
       <button class="btn btn-ghost" data-edit="${item.id}" type="button">수정</button>
     </div>`;
@@ -223,6 +261,21 @@ async function onFactoryReset(ctx) {
   ctx.go("home");
 }
 
+async function settleToday(ctx, totalOut) {
+  if (!totalOut) return;
+  if (!confirm(`오늘 나간 ${totalOut}개를 재고에 반영할까요?\n지금 남은 개수가 새 기본 재고가 됩니다.`)) return;
+  const items = await getAllItems();
+  for (const item of items) {
+    if (todayOutOf(item) === 0) continue;
+    item.todayOut = 0;
+    await saveItem(item);
+  }
+  ctx.state.settings.lastSettleAt = Date.now();
+  ctx.state.settings.lastConfirm = null;
+  saveSettings(ctx.state.settings);
+  ctx.go("settings");
+}
+
 async function undoLast(ctx) {
   const last = ctx.state.settings.lastConfirm;
   if (!last) return;
@@ -232,6 +285,7 @@ async function undoLast(ctx) {
     return;
   }
   item.stock += 1;
+  item.todayOut = Math.max(0, (Number(item.todayOut) || 0) - 1);
   await saveItem(item);
   ctx.state.settings.lastConfirm = null;
   saveSettings(ctx.state.settings);

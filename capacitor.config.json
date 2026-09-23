@@ -1,6 +1,6 @@
 {
   "appId": "com.daebbang.kiosk",
-  "appName": "대빵오락실",
+  "appName": "대빵오락실 이벤트 키오스크",
   "webDir": "dist",
   "backgroundColor": "#FFAB4A",
   "android": {
