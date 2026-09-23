@@ -29,10 +29,16 @@ export function renderPin(app, ctx) {
       </div>
     </section>`;
   bindGo(app, ctx.go);
-  document.getElementById("pin-ok")?.addEventListener("click", () => {
+  const submitPin = () => {
     const value = document.getElementById("pin").value;
     if (value === ctx.state.settings.pin) ctx.go("settings");
     else alert("PIN이 올바르지 않습니다.");
+  };
+  document.getElementById("pin-ok")?.addEventListener("click", submitPin);
+  document.getElementById("pin")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.isComposing || event.repeat) return;
+    event.preventDefault();
+    submitPin();
   });
 }
 
@@ -264,6 +270,7 @@ async function onFactoryReset(ctx) {
 async function settleToday(ctx, totalOut) {
   if (!totalOut) return;
   if (!confirm(`오늘 나간 ${totalOut}개를 재고에 반영할까요?\n지금 남은 개수가 새 기본 재고가 됩니다.`)) return;
+  if (!confirm("정말 반영할까요? 반영하면 오늘 나간 수가 0으로 초기화되고 되돌릴 수 없습니다.")) return;
   const items = await getAllItems();
   for (const item of items) {
     if (todayOutOf(item) === 0) continue;
